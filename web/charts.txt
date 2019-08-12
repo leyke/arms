@@ -1,0 +1,79 @@
+ public function actionChart()
+    {
+        $rule_id = Yii::$app->request->post('rule_id', Yii::$app->request->get('rule_id'));
+        $rule = Rule::findOne(['id' => $rule_id]);
+
+        $filter = json_decode(Yii::$app->request->post('filter'));
+
+        $isRule = empty($filter) || (!empty($filter) && in_array('rule', $filter));
+        $isEvent = empty($filter) || (!empty($filter) && in_array('event', $filter));
+        $isAction = empty($filter) || (!empty($filter) && in_array('action', $filter));
+
+        $res = ['name' => $rule->name, 'color' => Rule::COLOR, 'id' => $rule->id . '-rule'];
+
+        if (!empty($rule->event) && $isEvent) {
+            $eventR = $rule->event;
+            $res['children'][] = [
+                'name' => $eventR->name,
+                'color' => Event::COLOR,
+
+            ];
+        }
+        if (!empty($rule->action)) {
+            if ($isAction) {
+                $action = [
+                    'name' => $rule->action->name,
+                    'color' => Action::COLOR,
+
+                ];
+            }
+
+            if (!empty($rule->action->events)) {
+                foreach ($rule->action->events as $event) {
+                    if ($isEvent) {
+                        $eventOut = [
+                            'name' => $event->name,
+                            'color' => Event::COLOR,
+
+                        ];
+                    }
+                    if (!empty($event->rules)) {
+                        foreach ($event->rules as $eRule) {
+                            if ($isRule) {
+                                $childRule = [
+                                    'name' => $eRule->name,
+                                    'color' => Rule::COLOR,
+                                    'value' => count($eRule->chRules) > 0 ? count($eRule->chRules) : 0
+                                ];
+                                if ($isEvent) {
+                                    $eventOut['children'][] = $childRule;
+                                } else {
+                                    $eventOut = $childRule;
+                                }
+                            }
+                        }
+                    } else {
+                        if ($isEvent) {
+                            $eventOut['children'][0]['value'] = 0;
+                        }
+                    }
+                    if (!empty($eventOut)) {
+                        if ($isAction) {
+                            $action['children'][] = $eventOut;
+                        } else {
+                            $action = $eventOut;
+                        }
+                    }
+                }
+            }
+
+            if (!empty($action)) {
+                $res['children'][] = $action;
+            }
+        }
+
+
+        return json_encode(['res' => [$res]]);
+    }
+
+
